@@ -59,6 +59,34 @@ Requires a public HTTPS endpoint (use `ngrok http 3978` or a VS dev tunnel durin
 4. Fill the placeholders in `src/adapters/teams/manifest/manifest.template.json`, zip it together with `color.png` (192×192) and `outline.png` (32×32), and upload it in Teams as a custom app.
 5. A **team owner** installs the app to the team and consents to the RSC permission `ChannelMessage.Read.Group` — this is what lets the bot read all channel messages without being @mentioned.
 
+## MCP server — ask questions about your team's conversations
+
+`src/mcp/server.ts` exposes the message database as MCP tools, so Claude (Desktop or Code) can answer things like *"what is going on with publisher X?"*, *"summarize the last 24h across all groups"*, or *"what has Rahul been discussing this week?"* — across **Telegram, Slack, and Teams** in one place.
+
+| Tool | What it answers |
+|---|---|
+| `activity_summary` | What's going on: volume per platform, busiest chats, most active people, per-day trend |
+| `list_chats` | Which groups are being captured, how active each is |
+| `search_messages` | Where a topic/advertiser/publisher/deal is being discussed |
+| `get_conversation` | Full chronological transcript of one group (by name or id) |
+| `team_member_activity` | What a specific person said, where, and how much |
+| `get_thread` | One discussion end-to-end: a message, its replies, and surrounding context |
+
+It reads `MONGO_URI` from the project's `.env`. Read-only — the server never writes to the database. Two ways to run it:
+
+**stdio (per-client, no port).** The MCP client spawns the process on demand:
+
+```bash
+claude mcp add bots-employee-x -- npx tsx /path/to/Bots-Employee-X/src/mcp/server.ts
+```
+
+**HTTP on port 3979 (always-on service, e.g. under pm2).** Setting `MCP_PORT` switches the transport; the endpoint is `http://localhost:3979/mcp` (health check at `/health`). This is what `ecosystem.config.cjs` runs (`bots-employee-x-mcp` app; requires `npm run build` first):
+
+```bash
+pm2 start ecosystem.config.cjs --only bots-employee-x-mcp
+claude mcp add --transport http bots-employee-x http://localhost:3979/mcp
+```
+
 ## Scripts
 
 | Command | What it does |
@@ -67,3 +95,4 @@ Requires a public HTTPS endpoint (use `ngrok http 3978` or a VS dev tunnel durin
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run compiled build |
 | `npm run typecheck` | Type-check without emitting |
+| `npm run mcp` | Run the MCP server (stdio) for Claude Desktop / Claude Code |
